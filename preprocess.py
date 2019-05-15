@@ -44,9 +44,9 @@ def generate_seg_file(input_file, output_seg_file):
             f.write(out_line)
 
 
-#generate_seg_file(train_file, seg_train_file)
-#generate_seg_file(val_file, seg_val_file)
-#generate_seg_file(test_file, seg_test_file)
+generate_seg_file(train_file, seg_train_file)
+generate_seg_file(val_file, seg_val_file)#
+generate_seg_file(test_file, seg_test_file)
 
 def generate_vocab_file(input_seg_file, output_vocab_file):
     with open(input_seg_file,'r') as f:
@@ -66,7 +66,7 @@ def generate_vocab_file(input_seg_file, output_vocab_file):
         for item in sorted_word_dict:
             f.write('%s\t%d\n' %(item[0], item[1]))
 
-#generate_vocab_file(seg_train_file, vocab_file)
+generate_vocab_file(seg_train_file, vocab_file)
 
 
 def generate_category_file(input_file, category_file):

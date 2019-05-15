@@ -35,7 +35,7 @@ hps = get_default_param()
 
 train_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.train.seg.txt'))
 val_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.val.seg.txt'))
-test_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.test.txt'))
+test_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.test.seg.txt'))
 vocab_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.vocab.txt'))
 category_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.category.txt'))
 output_folder = '../cnews/run_text_fun'
@@ -162,6 +162,10 @@ class TextDataSet:
 train_dataset = TextDataSet(train_file, vocab, category_vocab, hps.num_timesteps)
 #val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
 #test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
+#测试 next_batch
+#print(train_dataset.next_batch(2))
+#print(val_dataset.next_batch(2))
+#print(test_dataset.next_batch(2))
 
 
 def create_mode(hps, vocab_size, num_classes):
@@ -175,10 +179,6 @@ def create_mode(hps, vocab_size, num_classes):
     global_step = tf.Variable(tf.zeros([], tf.int64), name='global_step', trainable=False)
 
 
-#测试 next_batch
-#print(train_dataset.next_batch(2))
-#print(val_dataset.next_batch(2))
-#print(test_dataset.next_batch(2))
 
 
 
