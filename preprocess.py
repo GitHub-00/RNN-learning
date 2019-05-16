@@ -15,7 +15,8 @@ seg_test_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.test.se
 vocab_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.vocab.txt'))
 category_file = os.path.abspath(os.path.join(os.getcwd(),'../cnews/cnews.category.txt'))
 
-with open(val_file,'r') as f:
+with open(val_file,'r',encoding='utf-8') as f: #for windows coding='gbk'
+#with open(val_file, 'r') as f:  # for mac
     lines = f.readlines()
 
 #print(lines[0])
@@ -28,9 +29,11 @@ word_iter = jieba.cut(content)
 
 def generate_seg_file(input_file, output_seg_file):
     #按行对文件内容分词
-    with open(input_file,'r') as f:
+    with open(input_file,'r', encoding='utf-8') as f: # for windows coding='gbk'
+    #with open(input_file, 'r') as f:  # for mac
         lines = f.readlines()
-    with open(output_seg_file,'w') as f:
+    with open(output_seg_file,'w',encoding='utf-8') as f:
+    #with open(output_seg_file, 'w') as f: for mac
         for line in lines:
             label, content = line.strip('\r\n').split('\t')
             word_iter = jieba.cut(content)
@@ -49,7 +52,8 @@ generate_seg_file(val_file, seg_val_file)#
 generate_seg_file(test_file, seg_test_file)
 
 def generate_vocab_file(input_seg_file, output_vocab_file):
-    with open(input_seg_file,'r') as f:
+    with open(input_seg_file,'r',encoding='utf-8') as f: #for windows
+    #with open(input_seg_file, 'r') as f: #for mac
         lines = f.readlines()
 
     word_dict = {}
@@ -59,9 +63,11 @@ def generate_vocab_file(input_seg_file, output_vocab_file):
             word_dict.setdefault(word, 0 )
             word_dict[word] += 1
     #[(词,频次),,,,,()]
-    sorted_word_dict = sorted(word_dict.items(), key = lambda d:d[1])
+    sorted_word_dict = sorted(word_dict.items(), key = lambda d:d[1],reverse=True)
+    #sorted_word_dict = sorted(word_dict.items(), key = lambda d:d[1]) #mac python 3..5.1 reverse error
 
-    with open(output_vocab_file,'w') as f:
+    with open(output_vocab_file,'w',encoding='utf=-8') as f:
+    #with open(output_vocab_file, 'w') as f: #for mac
         f.write('<UNK>\t10000000\n')
         for item in sorted_word_dict:
             f.write('%s\t%d\n' %(item[0], item[1]))
@@ -70,7 +76,8 @@ generate_vocab_file(seg_train_file, vocab_file)
 
 
 def generate_category_file(input_file, category_file):
-    with open(input_file, 'r') as f:
+    with open(input_file, 'r',encoding='utf-8') as f:
+    #with open(input_file, 'r') as f: #for mac
         lines = f.readlines()
 
     category_dict = {}
@@ -80,7 +87,8 @@ def generate_category_file(input_file, category_file):
         category_dict[label] += 1
     category_number = len(category_dict)
 
-    with open(category_file,'w') as f:
+    with open(category_file,'w',encoding='utf-8') as f:
+    #with open(category_file, 'w') as f: #for mac
         for category in category_dict:
             line = '%s\n' %category
             print('%s\t%d' %(category,category_dict[category]))

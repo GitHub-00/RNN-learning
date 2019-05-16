@@ -16,6 +16,7 @@ import sys
 import numpy as np
 import math
 
+
 tf.logging.set_verbosity(tf.logging.INFO)
 
 def get_default_param():
@@ -52,14 +53,15 @@ class Vocab:
         self._read_dict(filename)
 
     def _read_dict(self, filename):
-        with open(filename,'r') as f:
+        with open(filename,'r',encoding='utf-8') as f: # for windows
+        #with open(filename,'r') as f: for mac
             lines = f.readlines()
         for line in lines:
             word, frequency = line.strip('\r\n').split('\t')
             #word = word.decode('utf-8')
             frequency = int(frequency)
-            if frequency < self._num_word_threshold:
-                continue
+            #if frequency < self._num_word_threshold:
+            #    continue
             idx = len(self._word_to_id)
             if word == '<UNK>':
                 self._unk = idx
@@ -83,7 +85,8 @@ class Vocab:
 class CategoryDict:
     def __init__(self, filename):
         self._category_to_id = {}
-        with open(filename,'r') as f:
+        with open(filename,'r',encoding='utf-8') as f: # for windows
+        #with open(filename,'r') as f: # for mac
             lines = f.readlines()
         for line in lines:
             category = line.strip('\r\n')
@@ -103,8 +106,8 @@ vocab_size = vocab.size()
 tf.logging.info('vocab_size: %d' %vocab.size())
 
 #测试API sentence_to_id
-#test_str = '的'
-#print(vocab.sentence_to_id(test_str))
+#test_str = 'Mordin'
+#tf.logging.info('label: %s, id: %s' %(test_str,vocab.sentence_to_id(test_str)))
 
 category_vocab = CategoryDict(category_file)
 num_classes = category_vocab.size()
@@ -125,10 +128,11 @@ class TextDataSet:
 
     def _parse_file(self, filename):
         tf.logging.info('loading data from %s'  %filename)
-        with open(filename,'r') as f:
+        with open(filename,'r',encoding='utf-8') as f: # for windows
+        # with open(filename,'r') as f: # for mac
             lines = f.readlines()
         for line in lines:
-            label, content = line.strip('\r\n').strip('\t')
+            label, content = line.strip('\r\n').split('\t')
             id_label= self._category_vocab.category_to_id(label)
             id_words = self._vocab.sentence_to_id(content)
             id_words = id_words[0: self._num_timesteps]
@@ -140,7 +144,7 @@ class TextDataSet:
         self._outputs = np.asarray(self._outputs, dtype=np.int32)
         self._random_shuffle()
 
-    def random_shuffle(self):
+    def _random_shuffle(self):
         p = np.random.permutation(len(self._inputs))
         self._inputs = self._inputs[p]
         self._outputs = self._outputs[p]
@@ -163,7 +167,7 @@ train_dataset = TextDataSet(train_file, vocab, category_vocab, hps.num_timesteps
 #val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
 #test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
 #测试 next_batch
-#print(train_dataset.next_batch(2))
+print(train_dataset.next_batch(2))
 #print(val_dataset.next_batch(2))
 #print(test_dataset.next_batch(2))
 
