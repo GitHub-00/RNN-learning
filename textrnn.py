@@ -60,8 +60,8 @@ class Vocab:
             word, frequency = line.strip('\r\n').split('\t')
             #word = word.decode('utf-8')
             frequency = int(frequency)
-            #if frequency < self._num_word_threshold:
-            #    continue
+            if frequency < self._num_word_threshold:
+                continue
             idx = len(self._word_to_id)
             if word == '<UNK>':
                 self._unk = idx
@@ -78,7 +78,7 @@ class Vocab:
         return len(self._word_to_id)
 
     def sentence_to_id(self, sentence):
-        word_ids = [self._word_to_id[cur_word] for cur_word in sentence.split()]
+        word_ids = [self.word_to_id(cur_word) for cur_word in sentence.split()]
         return word_ids
 
 
@@ -164,12 +164,12 @@ class TextDataSet:
         return batch_inputs, batch_outputs
 
 train_dataset = TextDataSet(train_file, vocab, category_vocab, hps.num_timesteps)
-#val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
-#test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
+val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
+test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
 #测试 next_batch
 print(train_dataset.next_batch(2))
-#print(val_dataset.next_batch(2))
-#print(test_dataset.next_batch(2))
+print(val_dataset.next_batch(2))
+print(test_dataset.next_batch(2))
 
 
 def create_mode(hps, vocab_size, num_classes):
