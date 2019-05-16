@@ -17,6 +17,20 @@ import numpy as np
 import math
 
 tf.logging.set_verbosity(tf.logging.INFO)
+'''
+def get_default_param():
+    return tf.contrib.training.HParams(
+        num_embedding_size = 32,
+        num_timesteps = 600,
+        num_lstm_nodes = [64,64],
+        num_lstm_layers = 2,
+        num_fc_nodes = 64,
+        batch_size = 100,
+        clip_lstm_grads = 1.0, #控制梯度
+        learning_rate = 0.001,
+        num_word_threshold = 10
+    )
+'''
 
 def get_default_param():
     return tf.contrib.training.HParams(
@@ -30,6 +44,7 @@ def get_default_param():
         learning_rate = 0.001,
         num_word_threshold = 10
     )
+
 
 hps = get_default_param()
 
@@ -76,7 +91,7 @@ class Vocab:
         return len(self._word_to_id)
 
     def sentence_to_id(self, sentence):
-        word_ids = [self._word_to_id[cur_word] for cur_word in sentence.split()]
+        word_ids = [self.word_to_id(cur_word) for cur_word in sentence.split()]
         return word_ids
 
 
@@ -128,7 +143,8 @@ class TextDataSet:
         with open(filename,'r') as f:
             lines = f.readlines()
         for line in lines:
-            label, content = line.strip('\r\n').strip('\t')
+            #print(line)
+            label, content = line.strip('\r\n').split('\t')
             id_label= self._category_vocab.category_to_id(label)
             id_words = self._vocab.sentence_to_id(content)
             id_words = id_words[0: self._num_timesteps]
@@ -140,7 +156,7 @@ class TextDataSet:
         self._outputs = np.asarray(self._outputs, dtype=np.int32)
         self._random_shuffle()
 
-    def random_shuffle(self):
+    def _random_shuffle(self):
         p = np.random.permutation(len(self._inputs))
         self._inputs = self._inputs[p]
         self._outputs = self._outputs[p]
@@ -160,25 +176,119 @@ class TextDataSet:
         return batch_inputs, batch_outputs
 
 train_dataset = TextDataSet(train_file, vocab, category_vocab, hps.num_timesteps)
-#val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
-#test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
+val_dataset = TextDataSet(val_file, vocab, category_vocab, hps.num_timesteps)
+test_dataset = TextDataSet(test_file, vocab, category_vocab, hps.num_timesteps)
 #测试 next_batch
 #print(train_dataset.next_batch(2))
 #print(val_dataset.next_batch(2))
 #print(test_dataset.next_batch(2))
 
 
-def create_mode(hps, vocab_size, num_classes):
+def create_model(hps, vocab_size, num_classes):
     num_timesteps = hps.num_timesteps
     batch_size = hps.batch_size
 
     inputs = tf.placeholder(tf.int32, (batch_size, num_timesteps))
-    outputs = tf.placeholder(tf.int32, (batch_size,))
+    outputs = tf.placeholder(tf.int32, (batch_size, ))
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
     global_step = tf.Variable(tf.zeros([], tf.int64), name='global_step', trainable=False)
+    embedding_initializer = tf.random_uniform_initializer(-1.0,1.0)
+    with tf.variable_scope('embedding', initializer=embedding_initializer):
+        embeddings = tf.get_variable(
+            'embedding',
+            [vocab_size, hps.num_embedding_size],
+            tf.float32
+        )
 
+        #[1,10,7]->[embeddings[1],[embeddings[10],[embeddings[7]
+        embed_inputs = tf.nn.embedding_lookup(embeddings, inputs)
 
+    scale = 1.0/math.sqrt(hps.num_embedding_size + hps.num_lstm_nodes[-1])/3.0
+    lstm_init = tf.random_uniform_initializer(-scale, scale)
+    #print(lstm_init)
 
+    with tf.variable_scope('lstm_nn', initializer= lstm_init):
+        cells = []
+        for i in range(hps.num_lstm_layers):
+            cell = tf.contrib.rnn.BasicLSTMCell(hps.num_lstm_nodes[i], state_is_tuple = True)
+            cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob = keep_prob)
+            cells.append(cell)
+
+        cell = tf.contrib.rnn.MultiRNNCell(cells)
+
+        initial_state = cell.zero_state(batch_size, tf.float32)
+        rnn_outputs,_ = tf.nn.dynamic_rnn(cell,
+                                          embed_inputs,
+                                          initial_state=initial_state)
+        #rnn_outputs[batch_size, num_timesteps, lstm_outputs[-1]]
+        last = rnn_outputs[:,-1,:]
+
+    fc_init = tf.uniform_unit_scaling_initializer(factor = 1.0)
+    with tf.variable_scope('fc', initializer= fc_init):
+        fcl = tf.layers.dense(last,
+                              hps.num_fc_nodes,
+                              activation=tf.nn.relu,
+                              name='fc1')
+        fcl_dropout = tf.contrib.layers.dropout(fcl, keep_prob)
+        logits = tf.layers.dense(fcl_dropout,
+                                 num_classes,
+                                 name = 'fc2')
+
+    with tf.name_scope('metrics'):
+        softmax_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=outputs,
+                                                                      logits=logits)
+
+        loss = tf.reduce_mean(softmax_loss)
+        y_pred = tf.argmax(tf.nn.softmax(logits),
+                           1,
+                           output_type=tf.int32)
+
+        correct_pred = tf.equal(outputs, y_pred)
+        accuracy = tf.reduce_mean(tf.cast(correct_pred,tf.float32))
+
+    with tf.name_scope('train_op'):
+        tvars = tf.trainable_variables()
+        for var in tvars:
+            tf.logging.info('variable name %s' %var.name)
+        grads, _ = tf.clip_by_global_norm(tf.gradients(loss, tvars),
+                                          hps.clip_lstm_grads)
+        optimizer = tf.train.AdamOptimizer(hps.learning_rate)
+
+        train_op = optimizer.apply_gradients(zip(grads, tvars),
+                                             global_step=global_step)
+
+    return ((inputs, outputs, keep_prob),
+            (loss, accuracy),
+            (train_op, global_step))
+
+#print(hps)
+#print(vocab_size)
+#print(num_classes)
+placeholders, metrics, others = create_model(hps, vocab_size, num_classes)
+
+inputs, outputs, keep_prob = placeholders
+loss, accuracy = metrics
+train_op, global_step = others
+
+init_op = tf.global_variables_initializer()
+train_keep_prob_value = 0.8
+test_keep_prob_value = 1.0
+
+num_train_steps = 10000
+
+with tf.Session() as sess:
+    sess.run(init_op)
+    for i in range(num_train_steps):
+        batch_inputs, batch_labels = train_dataset.next_batch(hps.batch_size)
+        outputs_val = sess.run([loss, accuracy, train_op, global_step],
+                           feed_dict={
+                                inputs:batch_inputs,
+                                outputs: batch_labels,
+                                keep_prob:test_keep_prob_value
+                           })
+        loss_val, accuracy_val ,_ ,global_step_val= outputs_val
+        if global_step_val % 20 == 0:
+            tf.logging.info("Step: %5d, loss: %3.3f, accuracy:%3.3f" %(global_step_val, loss_val, accuracy_val))
 
 
